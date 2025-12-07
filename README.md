@@ -27,8 +27,8 @@ frontend/
 
 ### Clone and install
 
-git clone <https://github.com/MrPratsJi/Learnlynk-Technical-Task.git>
-cd learnlynk-tech-test
+- git clone <https://github.com/MrPratsJi/Learnlynk-Technical-Task.git>
+- cd learnlynk-tech-test
 
 ### Supabase SQL setup
 
