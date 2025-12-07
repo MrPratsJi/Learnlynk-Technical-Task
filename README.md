@@ -1,167 +1,137 @@
 # LearnLynk – Technical Assessment 
 
-Thanks for taking the time to complete this assessment. The goal is to understand how you think about problems and how you structure real project work. This is a small, self-contained exercise that should take around **2–3 hours**. It’s completely fine if you don’t finish everything—just note any assumptions or TODOs.
+This project is a submission for the LearnLynk technical test. It includes database schema, row-level security, an Edge Function for task creation, a Next.js page that lists today’s tasks, and a short written answer about Stripe Checkout.
 
-We use:
+## 📁 Project Structure
 
-- **Supabase Postgres**
-- **Supabase Edge Functions (TypeScript)**
-- **Next.js + TypeScript**
+backend/
+  schema.sql
+  rls_policies.sql
+  edge-functions/
+    create-task/
+      index.ts
+      .env         (for local testing)
 
-You may use your own free Supabase project.
+frontend/
+  pages/
+    dashboard/
+      today.tsx
+  lib/
+    supabaseClient.ts
+  .env.local       (for local testing)
 
----
+.env.sample        (for understanding)
+.gitignore        
 
-## Overview
+## 🚀 Setup
 
-There are four technical tasks:
+### Clone and install
 
-1. Database schema — `backend/schema.sql`  
-2. RLS policies — `backend/rls_policies.sql`  
-3. Edge Function — `backend/edge-functions/create-task/index.ts`  
-4. Next.js page — `frontend/pages/dashboard/today.tsx`  
+git clone <https://github.com/MrPratsJi/Learnlynk-Technical-Task.git>
+cd learnlynk-tech-test
 
-There is also a short written question about Stripe in this README.
+### Supabase SQL setup
 
-Feel free to use Supabase/PostgreSQL docs, or any resource you normally use.
+- Log in to your Supabase project
+- Open SQL Editor
+- Run the contents of:
+  - backend/schema.sql
+  - backend/rls_policies.sql
 
----
+This creates all required tables and policies.
 
-## Task 1 — Database Schema
+### Environment variables
 
-File: `backend/schema.sql`
+Create the following files locally (do not push to github):
 
-Create the following tables:
+- frontend/.env.local
+- NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+- NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
+- backend/edge-functions/create-task/.env
+- SUPABASE_URL=https://<project>.supabase.co
+- SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
 
-- `leads`  
-- `applications`  
-- `tasks`  
+A .env.sample file at the project root shows expected variables.
 
-Each table should include standard fields:
+## 🧪 Testing
 
-```sql
-id uuid primary key default gen_random_uuid(),
-tenant_id uuid not null,
-created_at timestamptz default now(),
-updated_at timestamptz default now()
-```
+### Database
 
-Additional requirements:
+- Insert test rows using Supabase Table Editor:
+- Add a lead
+- Add an application linked to that lead
+- Add a task with: 
+   - status = "open"
+   - type = "call" | "email" | "review"
+   - due_at = today
 
-- `applications.lead_id` → FK to `leads.id`  
-- `tasks.application_id` → FK to `applications.id`  
-- `tasks.type` should only allow: `call`, `email`, `review`  
-- `tasks.due_at >= tasks.created_at`  
-- Add reasonable indexes for typical queries:  
-  - Leads: `tenant_id`, `owner_id`, `stage`  
-  - Applications: `tenant_id`, `lead_id`  
-  - Tasks: `tenant_id`, `due_at`, `status`  
+### To verify filtering directly:
 
----
+select *
+from tasks
+where status != 'completed'
+  and due_at::date = current_date;
 
-## Task 2 — Row-Level Security
+### Frontend
 
-File: `backend/rls_policies.sql`
+From the frontend directory:
 
-We want:
+npm install
+npm run dev
 
-- Counselors can see:
-  - Leads they own, or  
-  - Leads assigned to any team they belong to  
-- Admins can see all leads belonging to their tenant
+Open: http://localhost:3000/dashboard/today
 
-Assume the existence of:
+### Features:
 
-```
-users(id, tenant_id, role)
-teams(id, tenant_id)
-user_teams(user_id, team_id)
-```
+- Lists tasks due today
+- Shows task type, application_id, due_at, status
+- Provides “Mark Complete” to update Supabase
 
-JWT contains:
+### Edge Function
 
-- `user_id`
-- `role`
-- `tenant_id`
+The Edge Function validates input, inserts a task using the service role key, and emits a "task.created" realtime broadcast event.
 
-Tasks:
-
-1. Enable RLS on `leads`  
-2. Write a **SELECT** policy enforcing the rules above  
-3. Write an **INSERT** policy that allows counselors/admins to add leads under their tenant  
-
----
-
-## Task 3 — Edge Function: create-task
-
-File: `backend/edge-functions/create-task/index.ts`
-
-Write a simple POST endpoint that:
-
-### Input:
-```json
+Example request body:
 {
   "application_id": "uuid",
   "task_type": "call",
   "due_at": "2025-01-01T12:00:00Z"
 }
-```
 
-### Requirements:
-- Validate:
-  - `task_type` is `call`, `email`, or `review`
-  - `due_at` is a valid *future* timestamp  
-- Insert a row into `tasks` using the service role key  
-- Return:
+Response pattern: 
 
-```json
 { "success": true, "task_id": "..." }
-```
 
-On validation error → return **400**  
-On internal errors → return **500**
+### Edge Function Notes
 
----
+The `create-task` edge function assumes the following environment variables are set at runtime:
 
-## Task 4 — Frontend Page: `/dashboard/today`
+- SUPABASE_URL
+- SUPABASE_SERVICE_ROLE_KEY
 
-File: `frontend/pages/dashboard/today.tsx`
+For this assignment I focused on correctness of validation and insertion logic.
 
-Build a small page that:
+### Realtime Notes
 
-- Fetches tasks due **today** (status ≠ completed)  
-- Uses the provided Supabase client  
-- Displays:  
-  - type  
-  - application_id  
-  - due_at  
-  - status  
-- Adds a “Mark Complete” button that updates the task in Supabase  
+The create-task function emits a Supabase broadcast event ("task.created") after inserting a task. For this assignment I only implemented the publisher side, as the frontend listener was not required in the instructions. The event payload includes task ID, application ID, type and due date for potential UI updates.
 
----
 
-## Task 5 — Stripe Checkout (Written Answer)
-
-Add a section titled:
-
-```
 ## Stripe Answer
-```
 
-Write **8–12 lines** describing how you would implement a Stripe Checkout flow for an application fee, including:
+I would start by inserting a new row in payment_requests when the user chooses to pay the application fee. This row stores the application_id, amount, and a pending status before any Stripe call is made. The backend then creates a Stripe Checkout Session and saves the checkout_session_id, payment_intent_id, and return URL back to that same row. The user is redirected to the Stripe hosted page to complete the payment. A webhook endpoint listens for checkout.session.completed from Stripe, verifies the signature, then finds the correct payment_requests entry using the stored session data. Once confirmed, I update the row to paid and write any relevant values from the session, like currency or final amount. Finally, I change the linked application to reflect a successful payment, for example setting a paid flag or advancing its stage so the admissions team can continue processing.
 
-- When you insert a `payment_requests` row  
-- When you call Stripe  
-- What you store from the checkout session  
-- How you handle webhooks  
-- How you update the application after payment succeeds  
+## ✔️ Submission
 
----
+This repository includes:
 
-## Submission
+- Database schema and indexes
+- RLS policies
+- Edge Function written in TypeScript
+- Working Next.js page with data fetch and update
+- Stripe written answer
 
-1. Push your work to a public GitHub repo.  
-2. Add your Stripe answer at the bottom of this file.  
-3. Share the link.
 
-Good luck.
+
+
+
+

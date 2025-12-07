@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../../../lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 
 type Task = {
   id: string;
@@ -19,21 +19,31 @@ export default function TodayDashboard() {
     setError(null);
 
     try {
-      // TODO:
-      // - Query tasks that are due today and not completed
-      // - Use supabase.from("tasks").select(...)
-      // - You can do date filtering in SQL or client-side
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      const end = new Date();
+      end.setHours(23, 59, 59, 999);
 
-      // Example:
-      // const { data, error } = await supabase
-      //   .from("tasks")
-      //   .select("*")
-      //   .eq("status", "open");
+      const { data, error: queryError } = await supabase
+        .from("tasks")
+        .select("*")
+        .gte("due_at", start.toISOString())
+        .lte("due_at", end.toISOString())
+        .neq("status", "completed")
+        .order("due_at", { ascending: true });
 
-      setTasks([]);
+      if (queryError) {
+        console.error(queryError);
+        setError("Failed to load tasks");
+        setTasks([]);
+        return;
+      }
+
+      setTasks(data ?? []);
     } catch (err: any) {
       console.error(err);
       setError("Failed to load tasks");
+      setTasks([]);
     } finally {
       setLoading(false);
     }
@@ -41,9 +51,18 @@ export default function TodayDashboard() {
 
   async function markComplete(id: string) {
     try {
-      // TODO:
-      // - Update task.status to 'completed'
-      // - Re-fetch tasks or update state optimistically
+      const { error: updateError } = await supabase
+        .from("tasks")
+        .update({ status: "completed" })
+        .eq("id", id);
+
+      if (updateError) {
+        console.error(updateError);
+        alert("Failed to update task");
+        return;
+      }
+
+      await fetchTasks();
     } catch (err: any) {
       console.error(err);
       alert("Failed to update task");
