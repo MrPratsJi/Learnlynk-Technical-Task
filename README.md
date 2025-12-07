@@ -4,7 +4,7 @@ This project is a submission for the LearnLynk technical test. It includes datab
 
 ## 📁 Project Structure
 
-backend/
+- backend/
   schema.sql
   rls_policies.sql
   edge-functions/
@@ -12,7 +12,7 @@ backend/
       index.ts
       .env         (for local testing)
 
-frontend/
+- frontend/
   pages/
     dashboard/
       today.tsx
